@@ -1,33 +1,34 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import numpy as np
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
-    page_title="Business Financial Performance Simulator",
+    page_title="Business Financial Intelligence Simulator",
     layout="wide"
 )
 
-# ================= CUSTOM STYLING =================
+# ================= MODERN STYLING =================
 st.markdown("""
 <style>
 body {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
 }
 .block-container {
     padding-top: 2rem;
 }
-h1, h2, h3, h4 {
+h1, h2, h3 {
     color: #ffffff;
 }
 p, label {
     color: #d1d5db;
 }
 [data-testid="metric-container"] {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.10);
+    border-radius: 14px;
     padding: 18px;
-    border-radius: 12px;
+    border-left: 6px solid #4cc9f0;
 }
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0b132b, #1c2541);
@@ -36,177 +37,125 @@ p, label {
 """, unsafe_allow_html=True)
 
 # ================= TITLE =================
+st.markdown("## 🚀 Business Financial Intelligence Simulator")
 st.markdown(
-    "<h1>📊 Business Financial Performance Simulator</h1>",
-    unsafe_allow_html=True
-)
-st.markdown(
-    "<p>Interactive, input-driven financial modeling for founders & early-stage businesses</p>",
-    unsafe_allow_html=True
+    "A **founder-first**, scenario-driven financial model inspired by modern BI tools"
 )
 
 # ================= SIDEBAR INPUTS =================
-st.sidebar.header("🧮 Business Inputs")
+st.sidebar.header("📥 Business Configuration")
 
-selling_price = st.sidebar.number_input(
-    "Selling Price per Unit (₹)", min_value=1, value=50
-)
+selling_price = st.sidebar.number_input("Selling Price per Unit (₹)", 1, 100000, 50)
+cost_per_unit = st.sidebar.number_input("Cost per Unit (₹)", 0, 100000, 20)
+fixed_expenses = st.sidebar.number_input("Fixed Monthly Expenses (₹)", 0, 1000000, 20000)
 
-cost_per_unit = st.sidebar.number_input(
-    "Cost per Unit (₹)", min_value=0, value=20
-)
+months_count = st.sidebar.slider("Business Timeline (Months)", 3, 24, 12)
+starting_units = st.sidebar.number_input("Units Sold in Month 1", 0, 100000, 70)
+growth_rate = st.sidebar.slider("Monthly Sales Growth (%)", -50, 100, 10)
 
-fixed_expenses = st.sidebar.number_input(
-    "Fixed Monthly Expenses (₹)", min_value=0, value=20000
-)
+price_scenario = st.sidebar.slider("Price Change Scenario (%)", -30, 30, 0)
 
-st.sidebar.subheader("📦 Units Sold per Month")
+adjusted_price = selling_price * (1 + price_scenario / 100)
 
-months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-units_sold = {}
+# ================= DATA GENERATION =================
+months = [f"Month {i+1}" for i in range(months_count)]
+units = []
 
-for m in months:
-    units_sold[m] = st.sidebar.number_input(
-        f"{m} Units Sold", min_value=0, value=70 if m == "Jan" else 50
-    )
+current_units = starting_units
+for _ in months:
+    units.append(max(0, current_units))
+    current_units *= (1 + growth_rate / 100)
 
-# ================= SCENARIO TESTING =================
-st.sidebar.subheader("🔁 What-If Scenario")
+data = []
 
-price_change = st.sidebar.slider(
-    "Change Selling Price (%)", -30, 30, 0
-)
-
-adjusted_price = selling_price * (1 + price_change / 100)
-
-# ================= FINANCIAL MODEL =================
-rows = []
-
-for m in months:
-    revenue = units_sold[m] * adjusted_price
-    cogs = units_sold[m] * cost_per_unit
+for m, u in zip(months, units):
+    revenue = u * adjusted_price
+    cogs = u * cost_per_unit
     gross_profit = revenue - cogs
     net_profit = gross_profit - fixed_expenses
 
     gross_margin = (gross_profit / revenue) * 100 if revenue else 0
     net_margin = (net_profit / revenue) * 100 if revenue else 0
 
-    rows.append([
-        m,
-        units_sold[m],
-        revenue,
-        cogs,
-        gross_profit,
-        net_profit,
-        gross_margin,
-        net_margin
-    ])
+    data.append([m, u, revenue, cogs, gross_profit, net_profit, gross_margin, net_margin])
 
-df = pd.DataFrame(rows, columns=[
+df = pd.DataFrame(data, columns=[
     "Month", "Units Sold", "Revenue", "COGS",
-    "Gross Profit", "Net Profit",
-    "Gross Margin %", "Net Margin %"
+    "Gross Profit", "Net Profit", "Gross Margin %", "Net Margin %"
 ])
 
-# ================= KPI CALCULATIONS =================
+# ================= KPIs =================
 total_revenue = df["Revenue"].sum()
 total_cogs = df["COGS"].sum()
-total_gross_profit = df["Gross Profit"].sum()
 total_net_profit = df["Net Profit"].sum()
+gross_margin_avg = df["Gross Margin %"].mean()
+net_margin_avg = df["Net Margin %"].mean()
 
-gross_margin_total = (total_gross_profit / total_revenue) * 100 if total_revenue else 0
-net_margin_total = (total_net_profit / total_revenue) * 100 if total_revenue else 0
-
-# ================= KPI STRIP =================
-k1, k2, k3, k4, k5, k6 = st.columns(6)
+k1, k2, k3, k4, k5 = st.columns(5)
 
 k1.metric("Total Revenue", f"₹{total_revenue:,.0f}")
 k2.metric("Total COGS", f"₹{total_cogs:,.0f}")
-k3.metric("Gross Profit", f"₹{total_gross_profit:,.0f}")
-k4.metric("Gross Margin %", f"{gross_margin_total:.2f}%")
-k5.metric("Net Profit", f"₹{total_net_profit:,.0f}")
-k6.metric("Net Margin %", f"{net_margin_total:.2f}%")
+k3.metric("Net Profit", f"₹{total_net_profit:,.0f}")
+k4.metric("Avg Gross Margin", f"{gross_margin_avg:.2f}%")
+k5.metric("Avg Net Margin", f"{net_margin_avg:.2f}%")
 
 st.divider()
 
-# ================= BUSINESS STATUS =================
-st.subheader("📍 Business Health Indicator")
+# ================= MOMENTUM INDICATOR =================
+st.subheader("📈 Business Momentum")
 
-if total_net_profit > 0:
-    st.success("🟢 Business is PROFITABLE and financially sustainable.")
-elif total_net_profit == 0:
-    st.warning("🟡 Business is at BREAK-EVEN. Minor changes can impact profitability.")
+trend = df["Net Profit"].iloc[-1] - df["Net Profit"].iloc[0]
+
+if trend > 0:
+    st.success("🟢 Positive momentum — business is scaling.")
+elif trend == 0:
+    st.warning("🟡 Flat momentum — growth levers needed.")
 else:
-    st.error("🔴 Business is LOSS-MAKING. Review pricing, volume, or expenses.")
-
-st.divider()
+    st.error("🔴 Negative momentum — cost or pricing issues detected.")
 
 # ================= CHARTS =================
 c1, c2 = st.columns(2)
 
 with c1:
-    st.subheader("Revenue vs Net Profit")
     fig1 = px.bar(
         df,
         x="Month",
         y=["Revenue", "Net Profit"],
-        barmode="group",
-        color_discrete_sequence=["#4cc9f0", "#f72585"]
+        title="Revenue vs Net Profit",
+        barmode="group"
     )
     st.plotly_chart(fig1, use_container_width=True)
 
 with c2:
-    st.subheader("Profitability Trend")
     fig2 = px.line(
         df,
         x="Month",
         y=["Gross Margin %", "Net Margin %"],
         markers=True,
-        color_discrete_sequence=["#90dbf4", "#f77f00"]
+        title="Profitability Trend"
     )
     st.plotly_chart(fig2, use_container_width=True)
 
 st.divider()
 
 # ================= BREAK-EVEN =================
-st.subheader("📊 Break-Even Analysis")
+st.subheader("🎯 Break-Even Intelligence")
 
 if selling_price > cost_per_unit:
     breakeven_units = fixed_expenses / (selling_price - cost_per_unit)
     st.metric("Break-Even Units / Month", f"{breakeven_units:.0f}")
-
-    fig3 = px.bar(
-        df,
-        x="Month",
-        y="Units Sold",
-        color_discrete_sequence=["#80ffdb"]
-    )
-    fig3.add_hline(
-        y=breakeven_units,
-        line_dash="dash",
-        annotation_text="Break-Even Level"
-    )
-    st.plotly_chart(fig3, use_container_width=True)
 else:
-    st.error("Selling price must exceed cost per unit to break even.")
+    st.error("Selling price must exceed unit cost to break even.")
 
 # ================= EXECUTIVE INSIGHTS =================
 st.subheader("🧠 Executive Insights")
 
-if net_margin_total < 0:
-    st.write(
-        "- Net margins are negative due to high fixed expenses.\n"
-        "- Increasing sales volume or pricing is required to reach sustainability."
-    )
-elif net_margin_total < 10:
-    st.write(
-        "- Margins are positive but thin.\n"
-        "- Cost control and pricing discipline are critical at this stage."
-    )
+if net_margin_avg < 0:
+    st.write("• Business model is loss-making under current assumptions.")
+    st.write("• Consider pricing, volume growth, or expense restructuring.")
+elif net_margin_avg < 15:
+    st.write("• Margins are thin — operational efficiency is critical.")
 else:
-    st.write(
-        "- Healthy margins indicate strong unit economics.\n"
-        "- Business model appears scalable under current assumptions."
-    )
+    st.write("• Healthy margins suggest scalable unit economics.")
 
-st.caption(f"Scenario price applied: ₹{adjusted_price:.2f} per unit")
+st.caption("Designed for modern founders, analysts & decision-makers")
