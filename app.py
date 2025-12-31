@@ -5,113 +5,140 @@ import numpy as np
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
-    page_title="Business Financial Intelligence Simulator",
+    page_title="Business Decision Intelligence Simulator",
     layout="wide"
 )
 
-# ================= MODERN STYLING =================
+# ================= STYLING =================
 st.markdown("""
 <style>
 body {
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    background: linear-gradient(135deg, #020617, #020617);
 }
 .block-container {
     padding-top: 2rem;
 }
 h1, h2, h3 {
-    color: #ffffff;
+    color: #f8fafc;
 }
 p, label {
-    color: #d1d5db;
+    color: #cbd5f5;
 }
 [data-testid="metric-container"] {
-    background: rgba(255,255,255,0.10);
-    border-radius: 14px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 16px;
     padding: 18px;
-    border-left: 6px solid #4cc9f0;
+    border-left: 6px solid #22c55e;
 }
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0b132b, #1c2541);
+    background: linear-gradient(180deg, #020617, #020617);
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ================= TITLE =================
-st.markdown("## 🚀 Business Financial Intelligence Simulator")
-st.markdown(
-    "A **founder-first**, scenario-driven financial model inspired by modern BI tools"
-)
+st.markdown("## 🧠 Business Decision Intelligence Simulator")
+st.caption("Interactive financial modeling built on real business principles")
 
 # ================= SIDEBAR INPUTS =================
 st.sidebar.header("📥 Business Configuration")
 
-selling_price = st.sidebar.number_input("Selling Price per Unit (₹)", 1, 100000, 50)
-cost_per_unit = st.sidebar.number_input("Cost per Unit (₹)", 0, 100000, 20)
-fixed_expenses = st.sidebar.number_input("Fixed Monthly Expenses (₹)", 0, 1000000, 20000)
+price = st.sidebar.number_input("Selling Price per Unit (₹)", 1, 100000, 50)
+cost = st.sidebar.number_input("Cost per Unit (₹)", 0, 100000, 20)
+fixed_cost = st.sidebar.number_input("Fixed Monthly Expenses (₹)", 0, 1000000, 20000)
 
-months_count = st.sidebar.slider("Business Timeline (Months)", 3, 24, 12)
-starting_units = st.sidebar.number_input("Units Sold in Month 1", 0, 100000, 70)
-growth_rate = st.sidebar.slider("Monthly Sales Growth (%)", -50, 100, 10)
+months = st.sidebar.slider("Business Timeline (Months)", 3, 24, 12)
+start_units = st.sidebar.number_input("Units Sold in Month 1", 0, 100000, 70)
+growth = st.sidebar.slider("Monthly Sales Growth (%)", -30, 100, 10)
 
-price_scenario = st.sidebar.slider("Price Change Scenario (%)", -30, 30, 0)
-
-adjusted_price = selling_price * (1 + price_scenario / 100)
+price_change = st.sidebar.slider("Price Change Scenario (%)", -30, 30, 0)
+adj_price = price * (1 + price_change / 100)
 
 # ================= DATA GENERATION =================
-months = [f"Month {i+1}" for i in range(months_count)]
 units = []
-
-current_units = starting_units
-for _ in months:
+current_units = start_units
+for _ in range(months):
     units.append(max(0, current_units))
-    current_units *= (1 + growth_rate / 100)
+    current_units *= (1 + growth / 100)
 
-data = []
+df = pd.DataFrame({
+    "Month": [f"Month {i+1}" for i in range(months)],
+    "Units Sold": units
+})
 
-for m, u in zip(months, units):
-    revenue = u * adjusted_price
-    cogs = u * cost_per_unit
-    gross_profit = revenue - cogs
-    net_profit = gross_profit - fixed_expenses
+df["Revenue"] = df["Units Sold"] * adj_price
+df["COGS"] = df["Units Sold"] * cost
+df["Contribution"] = df["Revenue"] - df["COGS"]
+df["Net Profit"] = df["Contribution"] - fixed_cost
 
-    gross_margin = (gross_profit / revenue) * 100 if revenue else 0
-    net_margin = (net_profit / revenue) * 100 if revenue else 0
+df["Gross Margin %"] = np.where(df["Revenue"] > 0, (df["Contribution"] / df["Revenue"]) * 100, 0)
+df["Net Margin %"] = np.where(df["Revenue"] > 0, (df["Net Profit"] / df["Revenue"]) * 100, 0)
 
-    data.append([m, u, revenue, cogs, gross_profit, net_profit, gross_margin, net_margin])
-
-df = pd.DataFrame(data, columns=[
-    "Month", "Units Sold", "Revenue", "COGS",
-    "Gross Profit", "Net Profit", "Gross Margin %", "Net Margin %"
-])
-
-# ================= KPIs =================
-total_revenue = df["Revenue"].sum()
-total_cogs = df["COGS"].sum()
-total_net_profit = df["Net Profit"].sum()
-gross_margin_avg = df["Gross Margin %"].mean()
-net_margin_avg = df["Net Margin %"].mean()
-
+# ================= KPI SUMMARY =================
 k1, k2, k3, k4, k5 = st.columns(5)
 
-k1.metric("Total Revenue", f"₹{total_revenue:,.0f}")
-k2.metric("Total COGS", f"₹{total_cogs:,.0f}")
-k3.metric("Net Profit", f"₹{total_net_profit:,.0f}")
-k4.metric("Avg Gross Margin", f"{gross_margin_avg:.2f}%")
-k5.metric("Avg Net Margin", f"{net_margin_avg:.2f}%")
+k1.metric("Total Revenue", f"₹{df['Revenue'].sum():,.0f}")
+k2.metric("Total Contribution", f"₹{df['Contribution'].sum():,.0f}")
+k3.metric("Total Net Profit", f"₹{df['Net Profit'].sum():,.0f}")
+k4.metric("Avg Gross Margin", f"{df['Gross Margin %'].mean():.1f}%")
+k5.metric("Avg Net Margin", f"{df['Net Margin %'].mean():.1f}%")
 
 st.divider()
 
-# ================= MOMENTUM INDICATOR =================
-st.subheader("📈 Business Momentum")
+# ================= UNIT ECONOMICS =================
+st.subheader("📦 Unit Economics")
 
-trend = df["Net Profit"].iloc[-1] - df["Net Profit"].iloc[0]
+contribution_per_unit = adj_price - cost
 
-if trend > 0:
-    st.success("🟢 Positive momentum — business is scaling.")
-elif trend == 0:
-    st.warning("🟡 Flat momentum — growth levers needed.")
+u1, u2, u3 = st.columns(3)
+u1.metric("Contribution per Unit", f"₹{contribution_per_unit:.0f}")
+u2.metric(
+    "Break-even Units / Month",
+    f"{fixed_cost / contribution_per_unit:.0f}" if contribution_per_unit > 0 else "❌"
+)
+u3.metric(
+    "Unit Economics Status",
+    "Healthy ✅" if contribution_per_unit > 0 else "Broken ❌"
+)
+
+st.divider()
+
+# ================= BUSINESS HEALTH SCORE =================
+st.subheader("❤️ Business Health Score")
+
+score = 0
+if contribution_per_unit > 0:
+    score += 30
+if df["Net Profit"].mean() > 0:
+    score += 30
+if growth > 0:
+    score += 20
+if fixed_cost < df["Revenue"].mean():
+    score += 20
+
+st.progress(score / 100)
+st.write(f"**Health Score: {score}/100**")
+
+if score >= 80:
+    st.success("Strong fundamentals — ready to scale.")
+elif score >= 50:
+    st.warning("Moderate health — improve efficiency.")
 else:
-    st.error("🔴 Negative momentum — cost or pricing issues detected.")
+    st.error("Weak fundamentals — fix core issues first.")
+
+st.divider()
+
+# ================= DECISION SIGNAL =================
+st.subheader("🚦 Executive Decision Signal")
+
+if contribution_per_unit <= 0:
+    st.error("❌ Stop: Unit economics are broken.")
+elif df["Net Profit"].mean() < 0:
+    st.warning("⚠️ Caution: Growth without profitability.")
+else:
+    st.success("✅ Go: Business model is scalable.")
+
+st.divider()
 
 # ================= CHARTS =================
 c1, c2 = st.columns(2)
@@ -138,24 +165,40 @@ with c2:
 
 st.divider()
 
-# ================= BREAK-EVEN =================
-st.subheader("🎯 Break-Even Intelligence")
+# ================= EXPORT SECTION =================
+st.subheader("📤 Export Business Data")
 
-if selling_price > cost_per_unit:
-    breakeven_units = fixed_expenses / (selling_price - cost_per_unit)
-    st.metric("Break-Even Units / Month", f"{breakeven_units:.0f}")
-else:
-    st.error("Selling price must exceed unit cost to break even.")
+# Full dataset
+st.download_button(
+    label="⬇️ Download Full Financial Model (CSV)",
+    data=df.to_csv(index=False),
+    file_name="business_financial_model.csv",
+    mime="text/csv"
+)
 
-# ================= EXECUTIVE INSIGHTS =================
-st.subheader("🧠 Executive Insights")
+# Executive summary
+summary_df = pd.DataFrame({
+    "Metric": [
+        "Total Revenue",
+        "Total Contribution",
+        "Total Net Profit",
+        "Average Gross Margin %",
+        "Average Net Margin %"
+    ],
+    "Value": [
+        df["Revenue"].sum(),
+        df["Contribution"].sum(),
+        df["Net Profit"].sum(),
+        round(df["Gross Margin %"].mean(), 2),
+        round(df["Net Margin %"].mean(), 2)
+    ]
+})
 
-if net_margin_avg < 0:
-    st.write("• Business model is loss-making under current assumptions.")
-    st.write("• Consider pricing, volume growth, or expense restructuring.")
-elif net_margin_avg < 15:
-    st.write("• Margins are thin — operational efficiency is critical.")
-else:
-    st.write("• Healthy margins suggest scalable unit economics.")
+st.download_button(
+    label="⬇️ Download Executive Summary (CSV)",
+    data=summary_df.to_csv(index=False),
+    file_name="executive_summary.csv",
+    mime="text/csv"
+)
 
-st.caption("Designed for modern founders, analysts & decision-makers")
+st.caption("Designed for founders, analysts & decision-makers.")
