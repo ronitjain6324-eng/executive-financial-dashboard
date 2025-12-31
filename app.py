@@ -2,130 +2,151 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# ================= PAGE CONFIG (MUST BE FIRST) =================
+# ================= PAGE CONFIG =================
 st.set_page_config(
-    page_title="Executive Financial Performance Dashboard",
+    page_title="Business Financial Performance Simulator",
     layout="wide"
 )
 
-# ================= TITLE =================
-st.title("📊 Executive Financial Performance Dashboard")
-st.caption("Power BI–style financial insights with dynamic business logic")
+st.title("📊 Business Financial Performance Simulator")
+st.caption("Input-driven financial modeling for early-stage businesses")
 
-# ================= BASE DATA =================
-df = pd.DataFrame({
-    "Month": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    "Revenue": [210000, 225000, 240000, 260000, 280000, 300000],
-    "COGS": [130000, 138000, 145000, 155000, 165000, 175000],
-    "Operating Expenses": [45000, 47000, 48000, 50000, 52000, 54000]
-})
+# ================= SIDEBAR: BUSINESS INPUTS =================
+st.sidebar.header("🧮 Business Inputs")
 
-# ================= DERIVED METRICS =================
-df["Gross Profit"] = df["Revenue"] - df["COGS"]
-df["Gross Margin %"] = (df["Gross Profit"] / df["Revenue"]) * 100
-df["Net Profit"] = df["Gross Profit"] - df["Operating Expenses"]
-df["Net Margin %"] = (df["Net Profit"] / df["Revenue"]) * 100
+months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
 
-# ================= SIDEBAR FILTERS (POWER BI SLICERS) =================
-st.sidebar.header("🔎 Filters")
-
-selected_months = st.sidebar.multiselect(
-    "Select Month(s)",
-    options=df["Month"].unique(),
-    default=df["Month"].unique()
+selling_price = st.sidebar.number_input(
+    "Selling Price per Unit (₹)",
+    min_value=1,
+    value=1000
 )
 
-filtered_df = df[df["Month"].isin(selected_months)]
-
-# ================= DYNAMIC KPI CALCULATIONS =================
-total_revenue = filtered_df["Revenue"].sum()
-total_cogs = filtered_df["COGS"].sum()
-gross_profit = filtered_df["Gross Profit"].sum()
-net_profit = filtered_df["Net Profit"].sum()
-
-gross_margin = (gross_profit / total_revenue) * 100 if total_revenue else 0
-net_margin = (net_profit / total_revenue) * 100 if total_revenue else 0
-
-# ================= KPI ROW (EXECUTIVE STRIP) =================
-col1, col2, col3, col4, col5, col6 = st.columns(6)
-
-col1.metric("Revenue", f"₹{total_revenue:,.0f}")
-col2.metric("COGS", f"₹{total_cogs:,.0f}")
-col3.metric("Gross Profit", f"₹{gross_profit:,.0f}")
-col4.metric("Gross Margin %", f"{gross_margin:.2f}%")
-col5.metric("Net Profit", f"₹{net_profit:,.0f}")
-col6.metric("Net Margin %", f"{net_margin:.2f}%")
-
-st.caption(
-    f"📊 Metrics calculated for {len(filtered_df)} month(s): "
-    f"{', '.join(selected_months) if selected_months else 'None'}"
+cost_per_unit = st.sidebar.number_input(
+    "Cost per Unit (₹)",
+    min_value=0,
+    value=600
 )
+
+fixed_expenses = st.sidebar.number_input(
+    "Fixed Monthly Expenses (₹)",
+    min_value=0,
+    value=20000
+)
+
+st.sidebar.subheader("📦 Units Sold per Month")
+
+units_sold = {}
+for month in months:
+    units_sold[month] = st.sidebar.number_input(
+        f"{month} Units Sold",
+        min_value=0,
+        value=50
+    )
+
+# ================= FINANCIAL MODEL =================
+data = []
+
+for month in months:
+    revenue = units_sold[month] * selling_price
+    cogs = units_sold[month] * cost_per_unit
+    gross_profit = revenue - cogs
+    net_profit = gross_profit - fixed_expenses
+
+    gross_margin = (gross_profit / revenue) * 100 if revenue else 0
+    net_margin = (net_profit / revenue) * 100 if revenue else 0
+
+    data.append([
+        month,
+        units_sold[month],
+        revenue,
+        cogs,
+        gross_profit,
+        net_profit,
+        gross_margin,
+        net_margin
+    ])
+
+df = pd.DataFrame(
+    data,
+    columns=[
+        "Month",
+        "Units Sold",
+        "Revenue",
+        "COGS",
+        "Gross Profit",
+        "Net Profit",
+        "Gross Margin %",
+        "Net Margin %"
+    ]
+)
+
+# ================= KPI AGGREGATION =================
+total_revenue = df["Revenue"].sum()
+total_cogs = df["COGS"].sum()
+total_gross_profit = df["Gross Profit"].sum()
+total_net_profit = df["Net Profit"].sum()
+
+overall_gross_margin = (total_gross_profit / total_revenue) * 100 if total_revenue else 0
+overall_net_margin = (total_net_profit / total_revenue) * 100 if total_revenue else 0
+
+# ================= KPI ROW =================
+k1, k2, k3, k4, k5, k6 = st.columns(6)
+
+k1.metric("Total Revenue", f"₹{total_revenue:,.0f}")
+k2.metric("Total COGS", f"₹{total_cogs:,.0f}")
+k3.metric("Gross Profit", f"₹{total_gross_profit:,.0f}")
+k4.metric("Gross Margin %", f"{overall_gross_margin:.2f}%")
+k5.metric("Net Profit", f"₹{total_net_profit:,.0f}")
+k6.metric("Net Margin %", f"{overall_net_margin:.2f}%")
 
 st.divider()
 
-# ================= ROW 1: PROFIT TRENDS =================
+# ================= CHARTS =================
 c1, c2 = st.columns(2)
 
 with c1:
-    st.subheader("Operating Profit Over Time")
+    st.subheader("Revenue vs Net Profit")
     fig1 = px.bar(
-        filtered_df,
+        df,
         x="Month",
-        y="Net Profit",
-        text_auto=True
+        y=["Revenue", "Net Profit"],
+        barmode="group"
     )
     st.plotly_chart(fig1, use_container_width=True)
 
 with c2:
-    st.subheader("Net Profit Trend")
+    st.subheader("Profitability Trend")
     fig2 = px.line(
-        filtered_df,
+        df,
         x="Month",
-        y="Net Profit",
+        y=["Gross Margin %", "Net Margin %"],
         markers=True
     )
     st.plotly_chart(fig2, use_container_width=True)
 
 st.divider()
 
-# ================= ROW 2: MARGIN & EXPENSES =================
-c3, c4 = st.columns(2)
-
-with c3:
-    st.subheader("Gross Margin % Trend")
-    fig3 = px.line(
-        filtered_df,
-        x="Month",
-        y="Gross Margin %",
-        markers=True
-    )
-    st.plotly_chart(fig3, use_container_width=True)
-
-with c4:
-    st.subheader("Operating Expense Breakdown (G&A)")
-    expense_df = pd.DataFrame({
-        "Category": ["Salaries", "Marketing", "Technology", "Rent", "Utilities"],
-        "Amount": [120000, 60000, 45000, 30000, 20000]
-    })
-    fig4 = px.bar(
-        expense_df,
-        x="Amount",
-        y="Category",
-        orientation="h"
-    )
-    st.plotly_chart(fig4, use_container_width=True)
-
-st.divider()
-
-# ================= EXECUTIVE SUMMARY =================
-st.subheader("📌 Executive Summary")
+# ================= UNIT ECONOMICS =================
+st.subheader("📈 Unit Economics Insight")
 
 st.write(
     f"""
-    The dashboard reflects financial performance for the selected period.
-    Revenue growth remains consistent across months while gross margins stay stable,
-    indicating effective cost control at the production level.
-    Net profitability improves as operating expenses scale proportionally with revenue,
-    suggesting healthy and sustainable business growth.
+    - Selling Price per Unit: ₹{selling_price}
+    - Cost per Unit: ₹{cost_per_unit}
+    - Contribution Margin per Unit: ₹{selling_price - cost_per_unit}
+    - Break-even Units per Month: 
+      {int(fixed_expenses / (selling_price - cost_per_unit)) if selling_price > cost_per_unit else "Not achievable"}
+    """
+)
+
+# ================= EXECUTIVE SUMMARY =================
+st.subheader("📌 Business Insight Summary")
+
+st.write(
+    """
+    This simulator helps founders understand how sales volume, pricing, and cost structure
+    impact profitability. By adjusting units sold and costs, decision-makers can evaluate
+    scalability, pricing strategies, and break-even feasibility before committing capital.
     """
 )
