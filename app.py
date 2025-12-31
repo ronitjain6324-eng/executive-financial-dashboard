@@ -2,17 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# ---------------- PAGE CONFIG (MUST BE FIRST) ----------------
+# ================= PAGE CONFIG (MUST BE FIRST) =================
 st.set_page_config(
     page_title="Executive Financial Performance Dashboard",
     layout="wide"
 )
 
-# ---------------- TITLE ----------------
+# ================= TITLE =================
 st.title("📊 Executive Financial Performance Dashboard")
-st.caption("Power BI–style financial overview for leadership decision-making")
+st.caption("Power BI–style financial insights with dynamic business logic")
 
-# ---------------- DATA ----------------
+# ================= BASE DATA =================
 df = pd.DataFrame({
     "Month": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
     "Revenue": [210000, 225000, 240000, 260000, 280000, 300000],
@@ -20,21 +20,33 @@ df = pd.DataFrame({
     "Operating Expenses": [45000, 47000, 48000, 50000, 52000, 54000]
 })
 
-# ---------------- CALCULATIONS ----------------
+# ================= DERIVED METRICS =================
 df["Gross Profit"] = df["Revenue"] - df["COGS"]
 df["Gross Margin %"] = (df["Gross Profit"] / df["Revenue"]) * 100
 df["Net Profit"] = df["Gross Profit"] - df["Operating Expenses"]
 df["Net Margin %"] = (df["Net Profit"] / df["Revenue"]) * 100
 
-# KPIs
-total_revenue = df["Revenue"].sum()
-total_cogs = df["COGS"].sum()
-gross_profit = df["Gross Profit"].sum()
-net_profit = df["Net Profit"].sum()
-gross_margin = (gross_profit / total_revenue) * 100
-net_margin = (net_profit / total_revenue) * 100
+# ================= SIDEBAR FILTERS (POWER BI SLICERS) =================
+st.sidebar.header("🔎 Filters")
 
-# ---------------- KPI ROW (POWER BI STYLE) ----------------
+selected_months = st.sidebar.multiselect(
+    "Select Month(s)",
+    options=df["Month"].unique(),
+    default=df["Month"].unique()
+)
+
+filtered_df = df[df["Month"].isin(selected_months)]
+
+# ================= DYNAMIC KPI CALCULATIONS =================
+total_revenue = filtered_df["Revenue"].sum()
+total_cogs = filtered_df["COGS"].sum()
+gross_profit = filtered_df["Gross Profit"].sum()
+net_profit = filtered_df["Net Profit"].sum()
+
+gross_margin = (gross_profit / total_revenue) * 100 if total_revenue else 0
+net_margin = (net_profit / total_revenue) * 100 if total_revenue else 0
+
+# ================= KPI ROW (EXECUTIVE STRIP) =================
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 col1.metric("Revenue", f"₹{total_revenue:,.0f}")
@@ -44,15 +56,20 @@ col4.metric("Gross Margin %", f"{gross_margin:.2f}%")
 col5.metric("Net Profit", f"₹{net_profit:,.0f}")
 col6.metric("Net Margin %", f"{net_margin:.2f}%")
 
+st.caption(
+    f"📊 Metrics calculated for {len(filtered_df)} month(s): "
+    f"{', '.join(selected_months) if selected_months else 'None'}"
+)
+
 st.divider()
 
-# ---------------- ROW 1: PROFIT TRENDS ----------------
+# ================= ROW 1: PROFIT TRENDS =================
 c1, c2 = st.columns(2)
 
 with c1:
     st.subheader("Operating Profit Over Time")
     fig1 = px.bar(
-        df,
+        filtered_df,
         x="Month",
         y="Net Profit",
         text_auto=True
@@ -62,7 +79,7 @@ with c1:
 with c2:
     st.subheader("Net Profit Trend")
     fig2 = px.line(
-        df,
+        filtered_df,
         x="Month",
         y="Net Profit",
         markers=True
@@ -71,13 +88,13 @@ with c2:
 
 st.divider()
 
-# ---------------- ROW 2: MARGIN & EXPENSES ----------------
+# ================= ROW 2: MARGIN & EXPENSES =================
 c3, c4 = st.columns(2)
 
 with c3:
     st.subheader("Gross Margin % Trend")
     fig3 = px.line(
-        df,
+        filtered_df,
         x="Month",
         y="Gross Margin %",
         markers=True
@@ -100,13 +117,15 @@ with c4:
 
 st.divider()
 
-# ---------------- EXECUTIVE SUMMARY ----------------
+# ================= EXECUTIVE SUMMARY =================
 st.subheader("📌 Executive Summary")
 
 st.write(
-    """
-    Revenue demonstrates consistent month-over-month growth, indicating strong demand and effective pricing strategy.
-    Gross margins remain stable while net profitability improves due to controlled operating expenses.
-    Overall financial performance suggests healthy scaling with sustainable cost management.
+    f"""
+    The dashboard reflects financial performance for the selected period.
+    Revenue growth remains consistent across months while gross margins stay stable,
+    indicating effective cost control at the production level.
+    Net profitability improves as operating expenses scale proportionally with revenue,
+    suggesting healthy and sustainable business growth.
     """
 )
