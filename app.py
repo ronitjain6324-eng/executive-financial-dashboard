@@ -25,7 +25,7 @@ p, label {
     color: #cbd5f5;
 }
 [data-testid="metric-container"] {
-    background: rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.08);
     border-radius: 16px;
     padding: 18px;
     border-left: 6px solid #22c55e;
@@ -38,28 +38,38 @@ p, label {
 
 # ================= TITLE =================
 st.markdown("## 🧠 Business Decision Intelligence Simulator")
-st.caption("Interactive financial modeling built on real business principles")
+st.caption("A Power BI–style system that explains *what*, *why*, and *what to do next*")
 
 # ================= SIDEBAR INPUTS =================
-st.sidebar.header("📥 Business Configuration")
+st.sidebar.header("📥 Business Inputs")
 
 price = st.sidebar.number_input("Selling Price per Unit (₹)", 1, 100000, 50)
 cost = st.sidebar.number_input("Cost per Unit (₹)", 0, 100000, 20)
 fixed_cost = st.sidebar.number_input("Fixed Monthly Expenses (₹)", 0, 1000000, 20000)
 
 months = st.sidebar.slider("Business Timeline (Months)", 3, 24, 12)
-start_units = st.sidebar.number_input("Units Sold in Month 1", 0, 100000, 70)
+start_units = st.sidebar.number_input("Units Sold (Month 1)", 0, 100000, 70)
 growth = st.sidebar.slider("Monthly Sales Growth (%)", -30, 100, 10)
 
 price_change = st.sidebar.slider("Price Change Scenario (%)", -30, 30, 0)
 adj_price = price * (1 + price_change / 100)
 
-# ================= DATA GENERATION =================
+# ================= TARGETS =================
+st.sidebar.header("🎯 Business Targets")
+
+target_revenue = st.sidebar.number_input("Target Monthly Revenue (₹)", 0, 1000000, 100000)
+target_net_margin = st.sidebar.slider("Target Net Margin (%)", 0, 50, 20)
+
+# ================= BENCHMARKS =================
+INDUSTRY_GROSS_MARGIN = 40
+INDUSTRY_NET_MARGIN = 15
+
+# ================= DATA =================
 units = []
-current_units = start_units
+current = start_units
 for _ in range(months):
-    units.append(max(0, current_units))
-    current_units *= (1 + growth / 100)
+    units.append(max(0, current))
+    current *= (1 + growth / 100)
 
 df = pd.DataFrame({
     "Month": [f"Month {i+1}" for i in range(months)],
@@ -74,131 +84,126 @@ df["Net Profit"] = df["Contribution"] - fixed_cost
 df["Gross Margin %"] = np.where(df["Revenue"] > 0, (df["Contribution"] / df["Revenue"]) * 100, 0)
 df["Net Margin %"] = np.where(df["Revenue"] > 0, (df["Net Profit"] / df["Revenue"]) * 100, 0)
 
-# ================= KPI SUMMARY =================
-k1, k2, k3, k4, k5 = st.columns(5)
+# ================= STORY MODE =================
+st.subheader("🩺 1. Business Health Overview")
 
-k1.metric("Total Revenue", f"₹{df['Revenue'].sum():,.0f}")
-k2.metric("Total Contribution", f"₹{df['Contribution'].sum():,.0f}")
-k3.metric("Total Net Profit", f"₹{df['Net Profit'].sum():,.0f}")
-k4.metric("Avg Gross Margin", f"{df['Gross Margin %'].mean():.1f}%")
-k5.metric("Avg Net Margin", f"{df['Net Margin %'].mean():.1f}%")
-
-st.divider()
-
-# ================= UNIT ECONOMICS =================
-st.subheader("📦 Unit Economics")
-
+avg_net_profit = df["Net Profit"].mean()
 contribution_per_unit = adj_price - cost
 
+health_score = 0
+health_score += 30 if contribution_per_unit > 0 else 0
+health_score += 30 if avg_net_profit > 0 else 0
+health_score += 20 if growth > 0 else 0
+health_score += 20 if fixed_cost < df["Revenue"].mean() else 0
+
+st.progress(health_score / 100)
+st.write(f"**Health Score: {health_score}/100**")
+
+if health_score >= 80:
+    st.success("Business fundamentals are strong.")
+elif health_score >= 50:
+    st.warning("Business is survivable but needs optimization.")
+else:
+    st.error("Core business model is at risk.")
+
+# ================= UNIT ECONOMICS =================
+st.subheader("📦 2. Unit Economics")
+
 u1, u2, u3 = st.columns(3)
-u1.metric("Contribution per Unit", f"₹{contribution_per_unit:.0f}")
-u2.metric(
-    "Break-even Units / Month",
-    f"{fixed_cost / contribution_per_unit:.0f}" if contribution_per_unit > 0 else "❌"
-)
-u3.metric(
-    "Unit Economics Status",
-    "Healthy ✅" if contribution_per_unit > 0 else "Broken ❌"
-)
+u1.metric("Contribution / Unit", f"₹{contribution_per_unit:.0f}")
+u2.metric("Break-even Units / Month",
+          f"{fixed_cost / contribution_per_unit:.0f}" if contribution_per_unit > 0 else "❌")
+u3.metric("Unit Economics Status",
+          "Healthy ✅" if contribution_per_unit > 0 else "Broken ❌")
 
-st.divider()
+# ================= TARGET TRACKING =================
+st.subheader("🎯 3. Target vs Actual")
 
-# ================= BUSINESS HEALTH SCORE =================
-st.subheader("❤️ Business Health Score")
+actual_avg_revenue = df["Revenue"].mean()
+actual_net_margin = df["Net Margin %"].mean()
 
-score = 0
-if contribution_per_unit > 0:
-    score += 30
-if df["Net Profit"].mean() > 0:
-    score += 30
-if growth > 0:
-    score += 20
-if fixed_cost < df["Revenue"].mean():
-    score += 20
+t1, t2 = st.columns(2)
+t1.metric("Avg Revenue vs Target",
+          f"₹{actual_avg_revenue:,.0f}",
+          delta=f"{actual_avg_revenue - target_revenue:,.0f}")
 
-st.progress(score / 100)
-st.write(f"**Health Score: {score}/100**")
+t2.metric("Net Margin vs Target",
+          f"{actual_net_margin:.1f}%",
+          delta=f"{actual_net_margin - target_net_margin:.1f}%")
 
-if score >= 80:
-    st.success("Strong fundamentals — ready to scale.")
-elif score >= 50:
-    st.warning("Moderate health — improve efficiency.")
-else:
-    st.error("Weak fundamentals — fix core issues first.")
+# ================= BENCHMARK COMPARISON =================
+st.subheader("📊 4. Industry Benchmark Comparison")
 
-st.divider()
+b1, b2 = st.columns(2)
+b1.metric("Gross Margin vs Industry",
+          f"{df['Gross Margin %'].mean():.1f}%",
+          delta=f"{df['Gross Margin %'].mean() - INDUSTRY_GROSS_MARGIN:.1f}%")
 
-# ================= DECISION SIGNAL =================
-st.subheader("🚦 Executive Decision Signal")
-
-if contribution_per_unit <= 0:
-    st.error("❌ Stop: Unit economics are broken.")
-elif df["Net Profit"].mean() < 0:
-    st.warning("⚠️ Caution: Growth without profitability.")
-else:
-    st.success("✅ Go: Business model is scalable.")
-
-st.divider()
+b2.metric("Net Margin vs Industry",
+          f"{df['Net Margin %'].mean():.1f}%",
+          delta=f"{df['Net Margin %'].mean() - INDUSTRY_NET_MARGIN:.1f}%")
 
 # ================= CHARTS =================
+st.subheader("📈 5. Financial Trends")
+
 c1, c2 = st.columns(2)
 
 with c1:
-    fig1 = px.bar(
-        df,
-        x="Month",
-        y=["Revenue", "Net Profit"],
-        title="Revenue vs Net Profit",
-        barmode="group"
-    )
+    fig1 = px.bar(df, x="Month", y=["Revenue", "Net Profit"],
+                  title="Revenue vs Net Profit", barmode="group")
     st.plotly_chart(fig1, use_container_width=True)
 
 with c2:
-    fig2 = px.line(
-        df,
-        x="Month",
-        y=["Gross Margin %", "Net Margin %"],
-        markers=True,
-        title="Profitability Trend"
-    )
+    fig2 = px.line(df, x="Month",
+                   y=["Gross Margin %", "Net Margin %"],
+                   markers=True,
+                   title="Margin Trend")
     st.plotly_chart(fig2, use_container_width=True)
 
-st.divider()
+# ================= SMART RECOMMENDATIONS =================
+st.subheader("🧠 6. Executive Recommendations")
 
-# ================= EXPORT SECTION =================
-st.subheader("📤 Export Business Data")
+if contribution_per_unit <= 0:
+    st.error("Fix pricing or reduce variable costs — unit economics are broken.")
+elif avg_net_profit < 0:
+    st.warning("Reduce fixed costs or delay scaling until profitable.")
+elif actual_net_margin < target_net_margin:
+    st.info("Focus on margin expansion — pricing or cost optimization needed.")
+else:
+    st.success("Business is on track. Consider scaling or adding new products.")
 
-# Full dataset
+# ================= EXPORT =================
+st.subheader("📤 Export Insights")
+
 st.download_button(
-    label="⬇️ Download Full Financial Model (CSV)",
-    data=df.to_csv(index=False),
-    file_name="business_financial_model.csv",
-    mime="text/csv"
+    "⬇️ Download Full Financial Model (CSV)",
+    df.to_csv(index=False),
+    "business_financial_model.csv",
+    "text/csv"
 )
 
-# Executive summary
-summary_df = pd.DataFrame({
+summary = pd.DataFrame({
     "Metric": [
-        "Total Revenue",
-        "Total Contribution",
-        "Total Net Profit",
-        "Average Gross Margin %",
-        "Average Net Margin %"
+        "Health Score",
+        "Avg Revenue",
+        "Avg Net Profit",
+        "Avg Gross Margin %",
+        "Avg Net Margin %"
     ],
     "Value": [
-        df["Revenue"].sum(),
-        df["Contribution"].sum(),
-        df["Net Profit"].sum(),
-        round(df["Gross Margin %"].mean(), 2),
-        round(df["Net Margin %"].mean(), 2)
+        health_score,
+        actual_avg_revenue,
+        avg_net_profit,
+        df["Gross Margin %"].mean(),
+        df["Net Margin %"].mean()
     ]
 })
 
 st.download_button(
-    label="⬇️ Download Executive Summary (CSV)",
-    data=summary_df.to_csv(index=False),
-    file_name="executive_summary.csv",
-    mime="text/csv"
+    "⬇️ Download Executive Summary (CSV)",
+    summary.to_csv(index=False),
+    "executive_summary.csv",
+    "text/csv"
 )
 
-st.caption("Designed for founders, analysts & decision-makers.")
+st.caption("This system converts numbers into decisions — like real BI tools.")
