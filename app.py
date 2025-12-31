@@ -2,35 +2,111 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# MUST be first Streamlit command
-st.set_page_config(page_title="Executive Financial Dashboard", layout="wide")
+# ---------------- PAGE CONFIG (MUST BE FIRST) ----------------
+st.set_page_config(
+    page_title="Executive Financial Performance Dashboard",
+    layout="wide"
+)
 
+# ---------------- TITLE ----------------
 st.title("📊 Executive Financial Performance Dashboard")
-st.write("✅ App loaded successfully")
+st.caption("Power BI–style financial overview for leadership decision-making")
 
-# Data
+# ---------------- DATA ----------------
 df = pd.DataFrame({
     "Month": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
     "Revenue": [210000, 225000, 240000, 260000, 280000, 300000],
     "COGS": [130000, 138000, 145000, 155000, 165000, 175000],
-    "Operating_Expenses": [45000, 47000, 48000, 50000, 52000, 54000]
+    "Operating Expenses": [45000, 47000, 48000, 50000, 52000, 54000]
 })
 
-# Calculations
-df["Gross_Profit"] = df["Revenue"] - df["COGS"]
-df["Net_Profit"] = df["Gross_Profit"] - df["Operating_Expenses"]
+# ---------------- CALCULATIONS ----------------
+df["Gross Profit"] = df["Revenue"] - df["COGS"]
+df["Gross Margin %"] = (df["Gross Profit"] / df["Revenue"]) * 100
+df["Net Profit"] = df["Gross Profit"] - df["Operating Expenses"]
+df["Net Margin %"] = (df["Net Profit"] / df["Revenue"]) * 100
 
 # KPIs
-col1, col2, col3 = st.columns(3)
-col1.metric("Revenue", f"₹{df['Revenue'].sum():,.0f}")
-col2.metric("Gross Profit", f"₹{df['Gross_Profit'].sum():,.0f}")
-col3.metric("Net Profit", f"₹{df['Net_Profit'].sum():,.0f}")
+total_revenue = df["Revenue"].sum()
+total_cogs = df["COGS"].sum()
+gross_profit = df["Gross Profit"].sum()
+net_profit = df["Net Profit"].sum()
+gross_margin = (gross_profit / total_revenue) * 100
+net_margin = (net_profit / total_revenue) * 100
+
+# ---------------- KPI ROW (POWER BI STYLE) ----------------
+col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+col1.metric("Revenue", f"₹{total_revenue:,.0f}")
+col2.metric("COGS", f"₹{total_cogs:,.0f}")
+col3.metric("Gross Profit", f"₹{gross_profit:,.0f}")
+col4.metric("Gross Margin %", f"{gross_margin:.2f}%")
+col5.metric("Net Profit", f"₹{net_profit:,.0f}")
+col6.metric("Net Margin %", f"{net_margin:.2f}%")
 
 st.divider()
 
-# Chart
-st.plotly_chart(
-    px.line(df, x="Month", y="Revenue", markers=True),
-    use_container_width=True
+# ---------------- ROW 1: PROFIT TRENDS ----------------
+c1, c2 = st.columns(2)
+
+with c1:
+    st.subheader("Operating Profit Over Time")
+    fig1 = px.bar(
+        df,
+        x="Month",
+        y="Net Profit",
+        text_auto=True
+    )
+    st.plotly_chart(fig1, use_container_width=True)
+
+with c2:
+    st.subheader("Net Profit Trend")
+    fig2 = px.line(
+        df,
+        x="Month",
+        y="Net Profit",
+        markers=True
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+st.divider()
+
+# ---------------- ROW 2: MARGIN & EXPENSES ----------------
+c3, c4 = st.columns(2)
+
+with c3:
+    st.subheader("Gross Margin % Trend")
+    fig3 = px.line(
+        df,
+        x="Month",
+        y="Gross Margin %",
+        markers=True
+    )
+    st.plotly_chart(fig3, use_container_width=True)
+
+with c4:
+    st.subheader("Operating Expense Breakdown (G&A)")
+    expense_df = pd.DataFrame({
+        "Category": ["Salaries", "Marketing", "Technology", "Rent", "Utilities"],
+        "Amount": [120000, 60000, 45000, 30000, 20000]
+    })
+    fig4 = px.bar(
+        expense_df,
+        x="Amount",
+        y="Category",
+        orientation="h"
+    )
+    st.plotly_chart(fig4, use_container_width=True)
+
+st.divider()
+
+# ---------------- EXECUTIVE SUMMARY ----------------
+st.subheader("📌 Executive Summary")
+
+st.write(
+    """
+    Revenue demonstrates consistent month-over-month growth, indicating strong demand and effective pricing strategy.
+    Gross margins remain stable while net profitability improves due to controlled operating expenses.
+    Overall financial performance suggests healthy scaling with sustainable cost management.
+    """
 )
- 
